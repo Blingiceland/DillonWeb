@@ -1,100 +1,91 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { fetchEvents } from '../utils/googleSheet';
 
-const eventsData = [
-    // February
-    { date: '2026-02-18', title: 'The Omens opin æfing (Oliver)' },
-    { date: '2026-02-19', title: 'Blues: Lame Dudes' },
-    { date: '2026-02-20', title: 'Ívar Andri (Haukur)' },
-    { date: '2026-02-21', title: 'Drápa' },
-    { date: '2026-02-26', title: 'Saktmóðigur with Bastard - Útgáfutónleikar' },
-    { date: '2026-02-27', title: 'Guitar Gods' },
-    { date: '2026-02-28', title: 'Ásbjörn Waage & the Omens (Oliver) ásamt Svörtum Tekjum & Cloud Cinema' },
+// Get Monday of the week for a given date
+const getMonday = (date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day; // Monday = 1, Sunday = 0 -> go back 6
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+};
 
-    // March
-    { date: '2026-03-05', title: 'Blues: Beggi Smari' },
-    { date: '2026-03-06', title: 'Svalbarði' },
-    { date: '2026-03-07', title: "80's Night" },
-    { date: '2026-03-12', title: 'Blues: Beggi Smari' },
-    { date: '2026-03-13', title: 'GG blús' },
-    { date: '2026-03-14', title: 'Rót' },
-    { date: '2026-03-19', title: 'Blues: Beggi Smari' },
-    { date: '2026-03-20', title: 'Dánarfregnir (Haukur)' },
-    { date: '2026-03-21', title: 'Ungfrúin góða og búsið' },
-    { date: '2026-03-26', title: 'Blues: Beggi Smari' },
-    { date: '2026-03-27', title: 'Litli matjurtagarðurinn' },
-    { date: '2026-03-28', title: 'Harma' },
-];
+const getSunday = (monday) => {
+    const d = new Date(monday);
+    d.setDate(d.getDate() + 6);
+    d.setHours(23, 59, 59, 999);
+    return d;
+};
+
+const formatDateRange = (monday) => {
+    const sunday = getSunday(monday);
+    const opts = { day: 'numeric', month: 'long' };
+    const monStr = monday.toLocaleDateString('is-IS', opts);
+    const sunStr = sunday.toLocaleDateString('is-IS', opts);
+    return `${monStr} – ${sunStr}`;
+};
 
 const WhatsOn = () => {
-    const [currentDate, setCurrentDate] = useState(new Date('2026-02-01'));
+    const [weekOffset, setWeekOffset] = useState(0);
+    const [allEvents, setAllEvents] = useState([]);
     const [displayEvents, setDisplayEvents] = useState([]);
-    const scrollContainerRef = useRef(null);
+    const [loading, setLoading] = useState(true);
+    const [weekLabel, setWeekLabel] = useState('');
 
+    // Fetch events from Google Sheet on mount
     useEffect(() => {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const loadEvents = async () => {
+            const data = await fetchEvents();
+            setAllEvents(data);
+            setLoading(false);
+        };
+        loadEvents();
+    }, []);
 
-        let monthEvents = [];
+    // Filter events for current week
+    useEffect(() => {
+        const today = new Date();
+        const monday = getMonday(today);
+        monday.setDate(monday.getDate() + weekOffset * 7);
+        const sunday = getSunday(monday);
 
-        for (let day = 1; day <= daysInMonth; day++) {
-            const dateObj = new Date(year, month, day);
+        setWeekLabel(formatDateRange(monday));
 
-            // Manually construct YYYY-MM-DD to avoid timezone issues
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 5 = Friday, 6 = Saturday
-
-            const specificEvent = eventsData.find(e => e.date === dateStr);
-            const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
-
-            if (specificEvent || isWeekend) {
-                const dayName = new Intl.DateTimeFormat('is-IS', { weekday: 'short' }).format(dateObj);
-                const dayNum = dateObj.getDate();
-
-                let concerts = [];
-                let djEvent = null;
-
-                if (specificEvent) {
-                    concerts.push({
-                        time: '21:00',
-                        title: specificEvent.title,
-                        isHighlight: true
-                    });
-                }
-
-                if (isWeekend) {
-                    djEvent = {
-                        time: 'Miðnætti',
-                        title: 'DJ Andrea Jóns',
-                        isHighlight: false,
-                        subtext: 'Party until 03:00'
-                    };
-                }
-
-                monthEvents.push({
-                    dayName: dayName.toUpperCase(),
-                    dayNum: dayNum,
-                    concerts: concerts,
-                    djEvent: djEvent
-                });
-            }
+        if (allEvents.length === 0 && !loading) {
+            setDisplayEvents([]);
+            return;
         }
 
-        setDisplayEvents(monthEvents);
+        const filtered = allEvents.filter(e => {
+            return e.dateObj >= monday && e.dateObj <= sunday;
+        });
 
-        // Reset scroll when month changes
-        if (scrollContainerRef.current) {
-            scrollContainerRef.current.scrollLeft = 0;
-        }
+        // Build display data with DJ info for weekends
+        const weekEvents = filtered.map(event => {
+            const dayOfWeekNum = event.dateObj.getDay();
+            const isWeekend = dayOfWeekNum === 5 || dayOfWeekNum === 6;
+            const dayName = new Intl.DateTimeFormat('is-IS', { weekday: 'short' }).format(event.dateObj);
 
-    }, [currentDate]);
+            return {
+                dayName: dayName.toUpperCase(),
+                dayNum: event.dayNum,
+                concerts: [{
+                    time: event.time,
+                    title: event.title,
+                    isHighlight: true
+                }],
+                djEvent: isWeekend ? {
+                    time: 'Miðnætti',
+                    title: 'DJ Andrea Jóns',
+                    isHighlight: false,
+                    subtext: 'Party until 03:00'
+                } : null
+            };
+        });
 
-    const changeMonth = (offset) => {
-        const newDate = new Date(currentDate.setMonth(currentDate.getMonth() + offset));
-        setCurrentDate(new Date(newDate));
-    };
-
-    const monthName = new Intl.DateTimeFormat('is-IS', { month: 'long', year: 'numeric' }).format(currentDate).toUpperCase();
+        setDisplayEvents(weekEvents);
+    }, [weekOffset, allEvents, loading]);
 
     return (
         <div style={{
@@ -115,7 +106,7 @@ const WhatsOn = () => {
                     gap: '8px'
                 }}>
                     <button
-                        onClick={() => changeMonth(-1)}
+                        onClick={() => setWeekOffset(prev => prev - 1)}
                         style={{
                             background: 'transparent',
                             border: '1px solid #444',
@@ -142,25 +133,34 @@ const WhatsOn = () => {
                             e.target.style.background = 'transparent';
                         }}
                     >
-                        &#9664; Prev
+                        &#9664; Last Week
                     </button>
 
-                    <h2 style={{
-                        fontSize: 'clamp(18px, 5vw, 36px)',
-                        color: 'var(--color-gold)',
-                        margin: '0',
-                        textAlign: 'center',
-                        textTransform: 'uppercase',
-                        letterSpacing: '2px',
-                        textShadow: '0 0 10px rgba(212, 163, 63, 0.2)',
-                        flex: 1,
-                        minWidth: 0
-                    }}>
-                        {monthName}
-                    </h2>
+                    <div style={{ textAlign: 'center', flex: 1, minWidth: 0 }}>
+                        <h2 style={{
+                            fontSize: 'clamp(16px, 4vw, 28px)',
+                            color: 'var(--color-gold)',
+                            margin: '0',
+                            textTransform: 'uppercase',
+                            letterSpacing: '2px',
+                            textShadow: '0 0 10px rgba(212, 163, 63, 0.2)',
+                        }}>
+                            {weekLabel}
+                        </h2>
+                        {weekOffset === 0 && (
+                            <span style={{
+                                fontSize: '12px',
+                                color: '#888',
+                                textTransform: 'uppercase',
+                                letterSpacing: '1px'
+                            }}>
+                                Þessi vika
+                            </span>
+                        )}
+                    </div>
 
                     <button
-                        onClick={() => changeMonth(1)}
+                        onClick={() => setWeekOffset(prev => prev + 1)}
                         style={{
                             background: 'transparent',
                             border: '1px solid #444',
@@ -187,30 +187,32 @@ const WhatsOn = () => {
                             e.target.style.background = 'transparent';
                         }}
                     >
-                        Next &#9654;
+                        Next Week &#9654;
                     </button>
                 </div>
 
-                {/* Horizontal Events Scroll */}
-                <div
-                    ref={scrollContainerRef}
-                    style={{
-                        display: 'flex',
-                        gap: '20px',
-                        overflowX: 'auto',
-                        paddingBottom: '30px', // More space for scrollbar
-                        scrollBehavior: 'smooth',
-                        WebkitOverflowScrolling: 'touch',
-                        padding: '10px 0 30px 0'
-                    }}
+                {/* Events Grid */}
+                <div style={{
+                    display: 'flex',
+                    gap: '20px',
+                    overflowX: 'auto',
+                    paddingBottom: '30px',
+                    scrollBehavior: 'smooth',
+                    WebkitOverflowScrolling: 'touch',
+                    padding: '10px 0 30px 0'
+                }}
                     className="gold-scrollbar"
                 >
-                    {displayEvents.length > 0 ? (
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-gold)', width: '100%' }}>
+                            Sæki dagskrá...
+                        </div>
+                    ) : displayEvents.length > 0 ? (
                         displayEvents.map((day, index) => (
                             <div key={index} style={{
                                 minWidth: '280px',
                                 maxWidth: '280px',
-                                minHeight: '320px', // Min-height to ensure alignment
+                                minHeight: '320px',
                                 background: '#1a1a1a',
                                 border: '1px solid #333',
                                 padding: '25px',
@@ -245,7 +247,7 @@ const WhatsOn = () => {
                                     </span>
                                 </div>
 
-                                {/* Concerts Section - Grows to push DJ to bottom */}
+                                {/* Concerts Section */}
                                 <div style={{
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -307,7 +309,7 @@ const WhatsOn = () => {
                         ))
                     ) : (
                         <div style={{ textAlign: 'center', padding: '40px', color: '#666', width: '100%' }}>
-                            Engir viðburðir skráðir í þessum mánuði.
+                            Engir viðburðir skráðir þessa viku.
                         </div>
                     )}
                 </div>

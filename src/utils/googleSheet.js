@@ -1,17 +1,24 @@
 
-const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSvUrITZ0D2z_Y0e6YHqpL2-1Ju3ox0xhlT0DIG63A9SBl90LfiUCsJKfk5yByVVbfyzcNwGhgZuean/pub?output=csv';
+const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1LzwjwuFwCaNowXFavQuGjPYPqQV7iweFftqABDu9DNs/gviz/tq?tqx=out:csv&sheet=2026';
+
+// Month name mapping for parsing dates like "Thursday 19 March"
+const MONTH_MAP = {
+    'january': 0, 'february': 1, 'march': 2, 'april': 3,
+    'may': 4, 'june': 5, 'july': 6, 'august': 7,
+    'september': 8, 'october': 9, 'november': 10, 'december': 11
+};
 
 /**
  * Parsed Event definition
  * @typedef {Object} DEvent
  * @property {string} id
- * @property {string} title
+ * @property {string} title - Band / event name
  * @property {Date} dateObj
  * @property {string} dateDisplay
  * @property {string} time
- * @property {string} entry
- * @property {string} ticketsUrl
- * @property {'buy' | 'door' | 'free' | 'none'} status
+ * @property {string} dayOfWeek - e.g. "Thursday"
+ * @property {number} dayNum - day of month
+ * @property {string} monthYear - e.g. "March 2026"
  */
 
 export const fetchEvents = async () => {
@@ -27,83 +34,55 @@ export const fetchEvents = async () => {
 
 const parseCSV = (text) => {
     const lines = text.trim().split('\n');
-    const headers = lines[0].split(',').map(h => h.trim());
-
-    // We expect headers: Date, Time, Title, Entry, Tickets
-    // Map headers to indices
-    const idx = {
-        date: headers.findIndex(h => h.toLowerCase() === 'date'),
-        time: headers.findIndex(h => h.toLowerCase() === 'time'),
-        title: headers.findIndex(h => h.toLowerCase() === 'title'),
-        entry: headers.findIndex(h => h.toLowerCase() === 'entry'),
-        tickets: headers.findIndex(h => h.toLowerCase() === 'tickets'),
-    };
-
+    // Skip header row
     const events = [];
+    const currentYear = 2026; // The sheet is for 2026
 
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
 
-        // Note: Simple split might break if titles have commas. 
-        // Using a more robust parser for lines:
-        // Actually, let's just use split(',') and assume simple data for now as per sample.
-        // If the user adds commas in titles, we might need a library or better regex.
-        // The sample: `Blues: Bee Bee & the bluebirds`. No commas. 
-
-        // Let's stick effectively to split(',') scanning for quotes if needed, 
-        // but let's try to be simple first as adding a full parser is verbose.
-        // The provided data is very simple.
         const cols = parseLine(line);
+        
+        // Column A = date (e.g. "Thursday 19 March")
+        // Column B = start time (e.g. "21:00")  
+        // Column C = band name
+        const dateRaw = (cols[0] || '').replace(/^"|"$/g, '').trim();
+        const time = (cols[1] || '').replace(/^"|"$/g, '').trim();
+        const band = (cols[2] || '').replace(/^"|"$/g, '').trim();
 
-        if (cols.length < 3) continue;
+        // Skip rows with no band name
+        if (!band) continue;
 
-        const dateRaw = cols[idx.date];
-        const time = cols[idx.time];
-        const title = cols[idx.title];
-        const entry = cols[idx.entry];
-        const tickets = cols[idx.tickets] || '';
+        // Skip cancelled events
+        if (band.toLowerCase().includes('cancelled') || band.toLowerCase().includes('canceled')) continue;
 
-        // Parse Date
-        let dateObj = new Date();
-        if (dateRaw.includes('.')) {
-            const parts = dateRaw.split('.');
-            // DD.MM.YYYY
-            dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${time || '00:00'}`);
-        } else {
-            // YYYY-MM-DD
-            dateObj = new Date(`${dateRaw}T${time || '00:00'}`);
-        }
+        // Parse date like "Thursday 19 March"
+        const dateParts = dateRaw.split(/\s+/);
+        if (dateParts.length < 3) continue;
 
-        // Format Date for Display (e.g. "Sat, 24 Jan")
-        const dateOptions = { weekday: 'short', day: 'numeric', month: 'short' };
-        const dateDisplay = dateObj.toLocaleDateString('en-GB', dateOptions);
+        const dayOfWeek = dateParts[0];
+        const dayNum = parseInt(dateParts[1], 10);
+        const monthName = dateParts[2].toLowerCase();
+        const month = MONTH_MAP[monthName];
 
-        // Determine Status
-        let status = 'none';
-        let ticketsUrl = '';
+        if (isNaN(dayNum) || month === undefined) continue;
 
-        const ticketsLower = tickets.toLowerCase();
-        const entryLower = entry.toLowerCase();
+        const dateObj = new Date(currentYear, month, dayNum);
 
-        if (ticketsLower.startsWith('http')) {
-            status = 'buy';
-            ticketsUrl = tickets;
-        } else if (ticketsLower.includes('at door')) {
-            status = 'door';
-        } else if (entryLower.includes('free') || ticketsLower.includes('free')) {
-            status = 'free';
-        }
+        // Format display
+        const dateDisplay = `${dayNum}. ${dateParts[2]}`;
 
         events.push({
             id: `evt-${i}`,
-            title: title.replace(/^"|"$/g, ''), // remove quotes if any
+            title: band.trim(),
             dateObj,
             dateDisplay,
-            time,
-            entry: entry.replace(/^"|"$/g, ''),
-            ticketsUrl,
-            status
+            time: time || '21:00',
+            dayOfWeek,
+            dayNum,
+            monthYear: `${dateParts[2]} ${currentYear}`,
+            month,
         });
     }
 
