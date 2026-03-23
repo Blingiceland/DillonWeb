@@ -176,3 +176,169 @@ a {
   background-color: #ffcc00;
   /* Much brighter on hover */
 }
+
+/* ── What's On Horizontal Timeline ────────────── */
+.whatson-wrap {
+  background: #111;
+  border-top: 1px solid #222;
+  border-bottom: 1px solid #222;
+  padding: 40px 0 20px;
+}
+
+.whatson-header-bar {
+  text-align: center;
+  padding: 0 20px 24px;
+}
+
+.whatson-header-bar h2 {
+  font-size: clamp(28px, 5vw, 48px);
+  color: var(--color-gold);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin: 0;
+  text-shadow: 0 0 20px rgba(200, 155, 60, 0.25);
+}
+
+.whatson-header-bar p {
+  color: #666;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin: 6px 0 0;
+}
+
+.whatson-hscroll {
+  display: flex;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 30px 16px;
+  gap: 0;
+}
+
+.whatson-month-col {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.whatson-month-label {
+  padding: 8px 16px;
+  font-family: var(--font-subheading);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-gold);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  white-space: nowrap;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.whatson-cards-row {
+  display: flex;
+  gap: 0;
+}
+
+.whatson-card {
+  flex-shrink: 0;
+  width: 180px;
+  padding: 20px 16px;
+  border-right: 1px solid #1e1e1e;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: background 0.2s, opacity 0.2s;
+  cursor: default;
+}
+
+.whatson-card:hover {
+  background: rgba(200, 155, 60, 0.05);
+}
+
+.whatson-card.past {
+  opacity: 0.35;
+}
+
+.whatson-card.past:hover {
+  opacity: 0.65;
+}
+
+.whatson-card.today {
+  background: rgba(200, 155, 60, 0.1);
+  border-top: 3px solid var(--color-gold);
+}
+
+.whatson-card-date {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.whatson-card-daynum {
+  font-family: var(--font-heading);
+  font-size: 36px;
+  color: #fff;
+  line-height: 1;
+}
+
+.whatson-card-dayname {
+  font-family: var(--font-subheading);
+  font-size: 12px;
+  color: var(--color-gold);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 500;
+}
+
+.whatson-card-title {
+  font-family: var(--font-subheading);
+  font-size: 15px;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+}
+
+.whatson-card-time {
+  font-family: monospace;
+  font-size: 12px;
+  color: #888;
+  margin-top: auto;
+}
+
+.whatson-empty,
+.whatson-loading {
+  text-align: center;
+  padding: 40px 20px;
+  font-size: 14px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.whatson-empty {
+  color: #555;
+}
+
+.whatson-loading {
+  color: var(--color-gold);
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .whatson-hscroll {
+    padding: 0 12px 12px;
+  }
+
+  .whatson-card {
+    width: 150px;
+    padding: 16px 12px;
+  }
+
+  .whatson-card-daynum {
+    font-size: 28px;
+  }
+
+  .whatson-card-title {
+    font-size: 13px;
+  }
+}
