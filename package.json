@@ -2,7 +2,6 @@
   "name": "DillonWeb",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://Blingiceland.github.io/dillonvefur",
   "dependencies": {
     "@daily-co/daily-js": "^0.78.0",
     "@testing-library/dom": "^10.4.0",
